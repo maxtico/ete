@@ -9,7 +9,7 @@ TOOLSPATH = os.path.realpath(os.path.split(os.path.realpath(__file__))[0])
 import argparse
 from . import (ete_split, ete_expand, ete_annotate, ete_ncbiquery,
                ete_generate, ete_mod, ete_extract, ete_compare,
-               ete_maptrees, ete_diff, ete_explore)
+               ete_maptrees, ete_diff, ete_explore, ete_dash)
 try:
     from . import ete_view, ete_evol
 except ImportError:
@@ -229,6 +229,16 @@ def _main(arguments):
                                        formatter_class=argparse.RawDescriptionHelpFormatter)
     explore_args_p.set_defaults(func=ete_explore.run)
     ete_explore.populate_args(explore_args_p)
+
+    # - dash -
+    dash_args_p = subparser.add_parser(
+        "dash",
+        parents=[source_args_p, main_args_p],
+        description=ete_dash.DESC,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    dash_args_p.set_defaults(func=ete_dash.run)
+    ete_dash.populate_parser(dash_args_p)
 
     # - helpers -
 
