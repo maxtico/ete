@@ -24,6 +24,9 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
     y_pos = compute_y_positions(tree, is_leaf_fn=is_leaf_fn, collapsed_nodes=collapsed_nodes)
     x_pos = compute_x_positions(tree)
 
+    # ---------- Evolutionary distance ----------
+    max_x = max(x_pos.values()) if x_pos else 0
+
     # ---------- Prepare figure ----------
     fig = go.Figure()
     x_lines, y_lines = [], []
@@ -100,7 +103,7 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
     # ---------- Layout ----------
     fig.update_layout(
         margin=dict(l=40, r=40, t=20, b=20),
-        xaxis=dict(title="Evolutionary distance"),
+        xaxis=dict(showticklabels=False,ticks="",showgrid=False,zeroline=False),
         yaxis=dict(showticklabels=False, autorange="reversed"),
         plot_bgcolor="white"
     )
@@ -109,6 +112,62 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
         missing = [n for n in x_pos if x_pos[n] is None or y_pos[n] is None]
         if missing:
             print("Nodes without position:", missing)
+
+    # --------- Drawing evolutionary distance ----------
+    y_max = max(y_pos.values())
+    y_bar = y_max + 1.5  # Position below the bottom leaf
+
+    # Assigning rounded scale length
+    if max_x <= 0.1:
+        scale_len = 0.01
+    elif max_x <= 0.5:
+        scale_len = 0.05
+    elif max_x <= 1:
+        scale_len = 0.1
+    elif max_x <= 5:
+        scale_len = 0.5
+    else:
+        scale_len = 1.0
+
+    # Drawing evolutionary distance bar
+    fig.add_shape(
+        type="line",
+        x0=0,
+        x1=0.01,
+        y0=y_bar,
+        y1=y_bar,
+        line=dict(color="black", width=2),
+        layer="below"
+    )
+    fig.add_shape(
+        type="line",
+        x0=0,
+        x1=0,
+        y0=y_bar - 0.8,
+        y1=y_bar + 0.8,
+        line=dict(color="black", width=2),
+        layer="below"
+    )
+    fig.add_shape(
+        type="line",
+        x0=0.01,
+        x1=0.01,
+        y0=y_bar - 0.8,
+        y1=y_bar + 0.8,
+        line=dict(color="black", width=2),
+        layer="below"
+    )
+    fig.add_annotation(
+        x=0.012,      # centrat sobre la barra
+        y=y_bar-1.1,        # una mica per sota
+        text=str(scale_len),
+        showarrow=False,
+        font=dict(size=12, color="black"),
+        xanchor="center",
+        yanchor="top",
+        hovertext=None,
+        captureevents=False
+    )
 
     return fig
 
