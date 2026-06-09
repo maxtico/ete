@@ -20,6 +20,7 @@ setup(
               'ete4/phyloxml',
               'ete4/gtdb_taxonomy',
               'ete4/ncbi_taxonomy',
+              'ete4/dashview',
               'ete4/tools',
               'ete4/evol',
               'ete4/evol/parser',

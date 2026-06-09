@@ -1,11 +1,9 @@
 # graphics.py
-from math import pi
-
 def compute_y_positions(tree, is_leaf_fn=None, collapsed_nodes=None):
     """
     Assigna coordenades y a tots els nodes segons jerarquia i nodes col·lapsats.
     """
-    is_leaf_fn = is_leaf_fn or (lambda n: getattr(n, 'is_leaf', False))
+    is_leaf_fn = is_leaf_fn or is_leaf
     collapsed_nodes = collapsed_nodes or set()
     y_pos = {}
     leaf_index = 0
@@ -13,23 +11,29 @@ def compute_y_positions(tree, is_leaf_fn=None, collapsed_nodes=None):
     def assign_y(node):
         nonlocal leaf_index
         # Node visual: fulla real o node col·lapsat
-        if is_leaf_fn(node) or node in collapsed_nodes or getattr(node,'is_leaf',False):
+        if is_leaf_fn(node) or node in collapsed_nodes:
             y_pos[node] = leaf_index
             leaf_index += 1
+            return
+
+        children = list(getattr(node, 'children', []))
+        for c in children:
+            assign_y(c)
+
+        child_y = [y_pos[c] for c in children if c in y_pos]
+        if child_y:
+            y_pos[node] = (min(child_y) + max(child_y)) / 2
         else:
-            for c in getattr(node, 'children', []):
-                assign_y(c)
-            y_pos[node] = sum(y_pos[c] for c in getattr(node, 'children', [])) / len(getattr(node, 'children', []))
+            y_pos[node] = leaf_index
 
     assign_y(tree)
 
-    # Centrar arrel verticalment
-    leaves = [l for l in getattr(tree,'leaves', lambda: [])()]
-    if leaves:
-        all_leaf_y = [y_pos[l] for l in leaves]
-        y_pos[tree] = (min(all_leaf_y) + max(all_leaf_y)) / 2
-
     return y_pos
+
+
+def is_leaf(node):
+    leaf = getattr(node, 'is_leaf', False)
+    return leaf() if callable(leaf) else bool(leaf)
 
 
 def compute_x_positions(tree):

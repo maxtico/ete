@@ -9,10 +9,7 @@ This tool launches a web-based interactive visualization
 of phylogenetic trees.
 """
 
-def populate_parser(parser):
-    # ❗ NO definim -t aquí
-    # -t ja ve del source_args_p del CLI principal d’ETE
-
+def populate_args(parser):
     parser.add_argument(
         "--port",
         type=int,
@@ -20,8 +17,11 @@ def populate_parser(parser):
         help="Dash server port"
     )
 
+
+populate_parser = populate_args
+
+
 def run(args):
-    # Obtenim arbres des de la font (-t, stdin, pipes, etc.)
     tfile = next(src_tree_iterator(args))
     t = PhyloTree(open(tfile), parser=args.src_newick_format)
 

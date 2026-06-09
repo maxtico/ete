@@ -1,6 +1,6 @@
 # draw.py
 import plotly.graph_objects as go
-from .graphics import compute_x_positions, compute_y_positions
+from .graphics import compute_x_positions, compute_y_positions, is_leaf
 from .layout import Layout, BASIC_LAYOUT
 
 def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed_nodes=None, debug=False):
@@ -26,98 +26,6 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
 
     # ---------- Evolutionary distance ----------
     max_x = max(x_pos.values()) if x_pos else 0
-
-    # ---------- Prepare figure ----------
-    fig = go.Figure()
-    x_lines, y_lines = [], []
-
-    # ---------- Draw recursive ----------
-    def draw(node):
-        nonlocal x_lines, y_lines
-
-        x0 = x_pos.get(node)
-        y0 = y_pos.get(node)
-        if x0 is None or y0 is None:
-            if debug:
-                print("Skipping node (no position):", getattr(node, 'name', node))
-            return
-
-        if node in collapsed_nodes:
-            return
-
-        for c in getattr(node, 'children', []):
-            x1 = x_pos.get(c)
-            y1 = y_pos.get(c)
-            if x1 is None or y1 is None:
-                if debug:
-                    print("Skipping child node (no position):", getattr(c, 'name', c))
-                continue
-
-            # Vertical line
-            x_lines += [x0, x0, None]
-            y_lines += [y0, y1, None]
-
-            # Horizontal line
-            x_lines += [x0, x1, None]
-            y_lines += [y1, y1, None]
-
-            draw(c)
-
-    draw(tree)
-
-    # ---------- Branches ----------
-    fig.add_trace(go.Scatter(
-        x=x_lines,
-        y=y_lines,
-        mode="lines",
-        line=dict(color="#444", width=2),
-        hoverinfo="none",
-        showlegend=False
-    ))
-
-    # ---------- Leaves ----------
-    leaf_x, leaf_y, leaf_text, leaf_color = [], [], [], []
-
-    leaves = list(getattr(tree, 'leaves', lambda: [])())
-    for leaf in leaves:
-        lx = x_pos.get(leaf, 0)
-        ly = y_pos.get(leaf, 0)
-        leaf_x.append(lx)
-        leaf_y.append(ly)
-
-        leaf_name = getattr(leaf, 'name', '') or ''
-        leaf_text.append(leaf_name)
-        leaf_color.append("crimson" if leaf_name in highlight else "#1f77b4")
-
-    fig.add_trace(go.Scatter(
-        x=leaf_x,
-        y=leaf_y,
-        mode="markers+text",
-        text=leaf_text,
-        textposition="middle right",
-        marker=dict(size=10, color=leaf_color),
-        hoverinfo="text",
-        showlegend=False
-    ))
-
-    # ---------- Layout ----------
-    fig.update_layout(
-        margin=dict(l=40, r=40, t=20, b=20),
-        xaxis=dict(showticklabels=False,ticks="",showgrid=False,zeroline=False),
-        yaxis=dict(showticklabels=False, autorange="reversed"),
-        plot_bgcolor="white"
-    )
-
-    if debug:
-        missing = [n for n in x_pos if x_pos[n] is None or y_pos[n] is None]
-        if missing:
-            print("Nodes without position:", missing)
-
-    # --------- Drawing evolutionary distance ----------
-    y_max = max(y_pos.values())
-    y_bar = y_max + 1.5  # Position below the bottom leaf
-
-    # Assigning rounded scale length
     if max_x <= 0.1:
         scale_len = 0.01
     elif max_x <= 0.5:
@@ -129,11 +37,190 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
     else:
         scale_len = 1.0
 
+    # ---------- Prepare figure ----------
+    fig = go.Figure()
+    x_lines, y_lines, line_data, line_text = [], [], [], []
+
+    def is_visible_leaf(node):
+        node_is_leaf = is_leaf_fn(node) if is_leaf_fn else is_leaf(node)
+        return node_is_leaf or node in collapsed_nodes
+
+    def get_visible_leaves(node):
+        if is_visible_leaf(node):
+            return [node]
+
+        leaves = []
+        for child in getattr(node, "children", []):
+            leaves.extend(get_visible_leaves(child))
+        return leaves
+
+    def get_node_info(node):
+        node_is_leaf = is_leaf_fn(node) if is_leaf_fn else is_leaf(node)
+        leaves = get_visible_leaves(node)
+        leaf_y = [y_pos.get(leaf, 0) for leaf in leaves]
+        return {
+            "type": "leaf" if node_is_leaf or node in collapsed_nodes else "internal",
+            "name": getattr(node, "name", "") or "",
+            "dist": getattr(node, "dist", None),
+            "support": getattr(node, "support", None),
+            "leaf_names": [getattr(leaf, "name", "") or "" for leaf in leaves],
+            "node_x": x_pos.get(node, 0),
+            "y_min": min(leaf_y) if leaf_y else y_pos.get(node, 0),
+            "y_max": max(leaf_y) if leaf_y else y_pos.get(node, 0),
+        }
+
+    def get_hover_text(info):
+        if info["type"] == "leaf":
+            return f"{info['name']}<br>dist: {info['dist']}"
+        return f"dist: {info['dist']}<br>support: {info['support']}"
+
+    # ---------- Draw recursive ----------
+    def draw(node):
+        nonlocal x_lines, y_lines, line_data, line_text
+
+        x0 = x_pos.get(node)
+        y0 = y_pos.get(node)
+        if x0 is None or y0 is None:
+            if debug:
+                print("Skipping node (no position):", getattr(node, 'name', node))
+            return
+
+        if node in collapsed_nodes:
+            return
+
+        children = [
+            c for c in getattr(node, 'children', [])
+            if x_pos.get(c) is not None and y_pos.get(c) is not None
+        ]
+
+        if len(children) > 1:
+            child_y = [y_pos[c] for c in children]
+            node_data = get_node_info(node)
+            x_lines += [x0, x0, None]
+            y_lines += [min(child_y), max(child_y), None]
+            line_data += [node_data, node_data, None]
+            line_text += [get_hover_text(node_data), get_hover_text(node_data), None]
+
+        for c in children:
+            x1 = x_pos.get(c)
+            y1 = y_pos.get(c)
+            c_data = get_node_info(c)
+
+            # Horizontal line
+            x_lines += [x0, x1, None]
+            y_lines += [y1, y1, None]
+            line_data += [c_data, c_data, None]
+            line_text += [get_hover_text(c_data), get_hover_text(c_data), None]
+
+            draw(c)
+
+    draw(tree)
+
+    fig.add_trace(go.Scatter(
+        x=[],
+        y=[],
+        mode="lines",
+        fill="toself",
+        fillcolor="rgba(210, 210, 210, 0.45)",
+        line=dict(color="rgba(210, 210, 210, 0)"),
+        hoverinfo="skip",
+        showlegend=False
+    ))
+
+    # ---------- Branches ----------
+    fig.add_trace(go.Scatter(
+        x=x_lines,
+        y=y_lines,
+        mode="lines",
+        customdata=line_data,
+        line=dict(color="#444", width=2),
+        hoverinfo="none",
+        showlegend=False
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=x_lines,
+        y=y_lines,
+        mode="lines",
+        customdata=line_data,
+        text=line_text,
+        line=dict(color="rgba(80, 80, 80, 0.01)", width=16),
+        hoverinfo="text",
+        hoverlabel=dict(bgcolor="white", bordercolor="#999", font=dict(color="#222")),
+        showlegend=False
+    ))
+
+    # ---------- Leaves ----------
+    leaf_x, leaf_y, leaf_text, leaf_hover, leaf_color, leaf_data = [], [], [], [], [], []
+
+    visible_leaves = [
+        n for n in getattr(tree, 'traverse', lambda: [])()
+        if is_visible_leaf(n)
+    ]
+    for leaf in visible_leaves:
+        lx = x_pos.get(leaf, 0)
+        ly = y_pos.get(leaf, 0)
+        leaf_x.append(lx)
+        leaf_y.append(ly)
+
+        leaf_name = getattr(leaf, 'name', '') or ''
+        leaf_info = get_node_info(leaf)
+        leaf_text.append(leaf_name)
+        leaf_hover.append(get_hover_text(leaf_info))
+        leaf_color.append("crimson" if leaf_name in highlight else "#1f77b4")
+        leaf_data.append(leaf_info)
+
+    fig.add_trace(go.Scatter(
+        x=leaf_x,
+        y=leaf_y,
+        mode="markers+text",
+        text=leaf_text,
+        hovertext=leaf_hover,
+        customdata=leaf_data,
+        textposition="middle right",
+        marker=dict(size=10, color=leaf_color),
+        hoverinfo="text",
+        cliponaxis=False,
+        showlegend=False
+    ))
+
+    max_label_len = max((len(text) for text in leaf_text), default=0)
+    right_margin = max(180, min(360, max_label_len * 8 + 40))
+    x_padding = max(max_x * 0.25, scale_len * 0.5)
+    y_max = max(y_pos.values())
+    y_bar = y_max + 1.5
+
+    # ---------- Layout ----------
+    fig.update_layout(
+        autosize=True,
+        margin=dict(l=40, r=right_margin, t=20, b=40),
+        xaxis=dict(
+            showticklabels=False,
+            ticks="",
+            showgrid=False,
+            zeroline=False,
+            range=[0, max(max_x, scale_len) + x_padding],
+        ),
+        yaxis=dict(
+            showticklabels=False,
+            range=[y_bar + 1, -1],
+        ),
+        plot_bgcolor="white",
+        clickmode="event+select",
+        uirevision="dashview-tree",
+    )
+
+    if debug:
+        missing = [n for n in x_pos if x_pos[n] is None or y_pos[n] is None]
+        if missing:
+            print("Nodes without position:", missing)
+
+    # --------- Drawing evolutionary distance ----------
     # Drawing evolutionary distance bar
     fig.add_shape(
         type="line",
         x0=0,
-        x1=0.01,
+        x1=scale_len,
         y0=y_bar,
         y1=y_bar,
         line=dict(color="black", width=2),
@@ -150,15 +237,15 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
     )
     fig.add_shape(
         type="line",
-        x0=0.01,
-        x1=0.01,
+        x0=scale_len,
+        x1=scale_len,
         y0=y_bar - 0.8,
         y1=y_bar + 0.8,
         line=dict(color="black", width=2),
         layer="below"
     )
     fig.add_annotation(
-        x=0.012,      # centrat sobre la barra
+        x=scale_len / 2,
         y=y_bar-1.1,        # una mica per sota
         text=str(scale_len),
         showarrow=False,
@@ -170,4 +257,3 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
     )
 
     return fig
-
