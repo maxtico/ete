@@ -71,8 +71,18 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
 
     def get_hover_text(info):
         if info["type"] == "leaf":
-            return f"{info['name']}<br>dist: {info['dist']}"
-        return f"dist: {info['dist']}<br>support: {info['support']}"
+            rows = [info["name"]] if info["name"] else []
+            if info["dist"] is not None:
+                rows.append(f"dist: {info['dist']}")
+            return "<br>".join(rows)
+        rows = []
+        if info["name"]:
+            rows.append(info["name"])
+        if info["dist"] is not None:
+            rows.append(f"dist: {info['dist']}")
+        if info["support"] is not None:
+            rows.append(f"support: {info['support']}")
+        return "<br>".join(rows)
 
     # ---------- Draw recursive ----------
     def draw(node):
@@ -115,17 +125,6 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
             draw(c)
 
     draw(tree)
-
-    fig.add_trace(go.Scatter(
-        x=[],
-        y=[],
-        mode="lines",
-        fill="toself",
-        fillcolor="rgba(210, 210, 210, 0.45)",
-        line=dict(color="rgba(210, 210, 210, 0)"),
-        hoverinfo="skip",
-        showlegend=False
-    ))
 
     # ---------- Branches ----------
     fig.add_trace(go.Scatter(
@@ -179,6 +178,7 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
         customdata=leaf_data,
         textposition="middle right",
         marker=dict(size=10, color=leaf_color),
+        textfont=dict(color="#111"),
         hoverinfo="text",
         cliponaxis=False,
         showlegend=False

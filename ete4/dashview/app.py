@@ -62,9 +62,19 @@ def run_dash_app(tree, port=8050):
         x1 = figure.layout.xaxis.range[1]
         y0 = data.get("y_min", 0) - 0.45
         y1 = data.get("y_max", 0) + 0.45
-        highlight_trace = figure.data[0]
-        highlight_trace.x = [x0, x1, x1, x0, x0]
-        highlight_trace.y = [y0, y0, y1, y1, y0]
+        highlight_shape = {
+            "type": "rect",
+            "xref": "x",
+            "yref": "y",
+            "x0": x0,
+            "x1": x1,
+            "y0": y0,
+            "y1": y1,
+            "fillcolor": "rgba(210, 210, 210, 0.35)",
+            "line": {"width": 0},
+            "layer": "below",
+        }
+        figure.layout.shapes = (highlight_shape,) + tuple(figure.layout.shapes or ())
         return figure
 
     app.run(port=port)
