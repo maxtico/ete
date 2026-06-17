@@ -23,6 +23,71 @@ def run_dash_app(tree, port=8050):
                 height: 100%;
                 margin: 0;
             }
+            .dashview-control-panel {
+                position: fixed;
+                top: 8px;
+                left: 8px;
+                z-index: 10000;
+                width: 176px;
+                border: 1px solid #dedede;
+                border-radius: 10px;
+                background: #dedede;
+                box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                overflow: hidden;
+            }
+            .dashview-control-panel.is-collapsed {
+                width: 120px;
+                height: 21px;
+            }
+            .dashview-panel-toggle,
+            .dashview-panel-button,
+            .dashview-download-option {
+                border: 0;
+                background: transparent;
+                color: #242424;
+                cursor: pointer;
+                font: inherit;
+            }
+            .dashview-panel-toggle {
+                width: 100%;
+                height: 21px;
+                padding: 0 4px;
+                font-weight: bold;
+                text-align: left;
+                font-size: 11px;
+                color: #464853;
+                font
+            }
+            .dashview-control-panel.is-collapsed .dashview-panel-toggle {
+                padding: 0 12px;
+                text-align: center;
+            }
+            .dashview-panel-button {
+                width: calc(100% - 16px);
+                margin: 0 8px 8px;
+                padding: 8px 10px;
+                border-radius: 7px;
+                background: #ffffff;
+                box-shadow: inset 0 0 0 1px #d9d9d9;
+                text-align: left;
+            }
+            .dashview-panel-button:hover,
+            .dashview-download-option:hover,
+            .dashview-panel-toggle:hover {
+                background: #e7e7e7;
+            }
+            .dashview-download-options {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                padding: 0 8px 10px;
+            }
+            .dashview-download-option {
+                padding: 7px 10px;
+                border-radius: 6px;
+                text-align: left;
+            }
         </style>
     </head>
     <body>
@@ -41,8 +106,52 @@ def run_dash_app(tree, port=8050):
             config={"responsive": True},
             clear_on_unhover=True,
             style={"width": "100%", "height": "100%"},
-        )
+        ),
+        html.Div(
+            [
+                html.Button("Control panel", id="control-panel-toggle", className="dashview-panel-toggle"),
+                html.Div(
+                    [
+                        html.Button("Download", id="download-toggle", className="dashview-panel-button"),
+                        html.Div(
+                            [
+                                html.Button("Newick", className="dashview-download-option"),
+                                html.Button("SVG", className="dashview-download-option"),
+                                html.Button("Image", className="dashview-download-option"),
+                            ],
+                            id="download-options",
+                            className="dashview-download-options",
+                        ),
+                    ],
+                    id="control-panel-body",
+                    style={"display": "none"},
+                ),
+            ],
+            id="control-panel",
+            className="dashview-control-panel is-collapsed",
+        ),
     ], style={"position": "fixed", "inset": 0})
+
+    @app.callback(
+        Output("control-panel", "className"),
+        Output("control-panel-body", "style"),
+        Output("download-options", "style"),
+        Input("control-panel-toggle", "n_clicks"),
+        Input("download-toggle", "n_clicks"),
+    )
+    def toggle_control_panel(panel_clicks, download_clicks):
+        panel_is_open = bool(panel_clicks and panel_clicks % 2)
+        download_is_open = bool(download_clicks and download_clicks % 2)
+
+        panel_class = "dashview-control-panel"
+        if not panel_is_open:
+            panel_class += " is-collapsed"
+
+        return (
+            panel_class,
+            {"display": "block" if panel_is_open else "none"},
+            {"display": "flex" if panel_is_open and download_is_open else "none"},
+        )
 
     @app.callback(
         Output("tree-graph", "figure"),
