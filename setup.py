@@ -21,6 +21,8 @@ setup(
               'ete4/gtdb_taxonomy',
               'ete4/ncbi_taxonomy',
               'ete4/dashview',
+              'ete4/dashview/callbacks',
+              'ete4/dashview/components',
               'ete4/tools',
               'ete4/evol',
               'ete4/evol/parser',

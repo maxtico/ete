@@ -1,6 +1,7 @@
 from ete4.dashview.app import run_dash_app
 from .common import src_tree_iterator
 from ete4 import PhyloTree
+from pathlib import Path
 
 DESC = """\
 Run an interactive tree explorer using Plotly Dash.
@@ -25,4 +26,4 @@ def run(args):
     tfile = next(src_tree_iterator(args))
     t = PhyloTree(open(tfile), parser=args.src_newick_format)
 
-    run_dash_app(t, port=args.port)
+    run_dash_app(t, port=args.port, tree_name=Path(tfile).name)
