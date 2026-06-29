@@ -1,9 +1,19 @@
-# draw.py
+import math
+
 import plotly.graph_objects as go
 from .graphics import compute_x_positions, compute_y_positions, is_leaf
 from .layout import Layout, BASIC_LAYOUT
 
-def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed_nodes=None, debug=False):
+
+def tree_to_plotly(
+    tree,
+    highlight=None,
+    layout=None,
+    is_leaf_fn=None,
+    collapsed_nodes=None,
+    debug=False,
+    shape="rectangular",
+):
     """
     Converteix un arbre ETE a una figura Plotly.
     
@@ -23,6 +33,9 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
     # ---------- Compute positions ----------
     y_pos = compute_y_positions(tree, is_leaf_fn=is_leaf_fn, collapsed_nodes=collapsed_nodes)
     x_pos = compute_x_positions(tree)
+
+    if shape not in {"rectangular", "circular"}:
+        shape = "rectangular"
 
     # ---------- Evolutionary distance ----------
     max_x = max(x_pos.values()) if x_pos else 0
@@ -84,8 +97,46 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
             rows.append(f"support: {info['support']}")
         return "<br>".join(rows)
 
+    visible_leaves = [
+        n for n in getattr(tree, 'traverse', lambda: [])()
+        if is_visible_leaf(n)
+    ]
+
+    n_visible_leaves = max(len(visible_leaves), 1)
+
+    def angle_for_y(y):
+        return -math.pi + (2 * math.pi * (y + 0.5) / n_visible_leaves)
+
+    def polar_to_xy(radius, angle):
+        return radius * math.cos(angle), radius * math.sin(angle)
+
+    def add_line(points, data, text):
+        for x, y in points:
+            x_lines.append(x)
+            y_lines.append(y)
+            line_data.append(data)
+            line_text.append(text)
+        x_lines.append(None)
+        y_lines.append(None)
+        line_data.append(None)
+        line_text.append(None)
+
+    def add_arc(radius, angle_start, angle_end, data, text):
+        if angle_start > angle_end:
+            angle_start, angle_end = angle_end, angle_start
+
+        steps = max(12, int(abs(angle_end - angle_start) / (math.pi / 48)))
+        points = [
+            polar_to_xy(
+                radius,
+                angle_start + (angle_end - angle_start) * i / steps,
+            )
+            for i in range(steps + 1)
+        ]
+        add_line(points, data, text)
+
     # ---------- Draw recursive ----------
-    def draw(node):
+    def draw_rectangular(node):
         nonlocal x_lines, y_lines, line_data, line_text
 
         x0 = x_pos.get(node)
@@ -106,10 +157,11 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
         if len(children) > 1:
             child_y = [y_pos[c] for c in children]
             node_data = get_node_info(node)
-            x_lines += [x0, x0, None]
-            y_lines += [min(child_y), max(child_y), None]
-            line_data += [node_data, node_data, None]
-            line_text += [get_hover_text(node_data), get_hover_text(node_data), None]
+            add_line(
+                [(x0, min(child_y)), (x0, max(child_y))],
+                node_data,
+                get_hover_text(node_data),
+            )
 
         for c in children:
             x1 = x_pos.get(c)
@@ -117,14 +169,56 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
             c_data = get_node_info(c)
 
             # Horizontal line
-            x_lines += [x0, x1, None]
-            y_lines += [y1, y1, None]
-            line_data += [c_data, c_data, None]
-            line_text += [get_hover_text(c_data), get_hover_text(c_data), None]
+            add_line([(x0, y1), (x1, y1)], c_data, get_hover_text(c_data))
 
-            draw(c)
+            draw_rectangular(c)
 
-    draw(tree)
+    def draw_circular(node):
+        nonlocal x_lines, y_lines, line_data, line_text
+
+        x0 = x_pos.get(node)
+        y0 = y_pos.get(node)
+        if x0 is None or y0 is None:
+            if debug:
+                print("Skipping node (no position):", getattr(node, 'name', node))
+            return
+
+        if node in collapsed_nodes:
+            return
+
+        children = [
+            c for c in getattr(node, 'children', [])
+            if x_pos.get(c) is not None and y_pos.get(c) is not None
+        ]
+
+        if len(children) > 1:
+            child_angles = [angle_for_y(y_pos[c]) for c in children]
+            node_data = get_node_info(node)
+            add_arc(
+                x0,
+                min(child_angles),
+                max(child_angles),
+                node_data,
+                get_hover_text(node_data),
+            )
+
+        for c in children:
+            x1 = x_pos.get(c)
+            y1 = y_pos.get(c)
+            angle = angle_for_y(y1)
+            c_data = get_node_info(c)
+            add_line(
+                [polar_to_xy(x0, angle), polar_to_xy(x1, angle)],
+                c_data,
+                get_hover_text(c_data),
+            )
+
+            draw_circular(c)
+
+    if shape == "circular":
+        draw_circular(tree)
+    else:
+        draw_rectangular(tree)
 
     # ---------- Branches ----------
     fig.add_trace(go.Scatter(
@@ -151,14 +245,19 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
 
     # ---------- Leaves ----------
     leaf_x, leaf_y, leaf_text, leaf_hover, leaf_color, leaf_data = [], [], [], [], [], []
+    leaf_textposition = []
 
-    visible_leaves = [
-        n for n in getattr(tree, 'traverse', lambda: [])()
-        if is_visible_leaf(n)
-    ]
     for leaf in visible_leaves:
         lx = x_pos.get(leaf, 0)
         ly = y_pos.get(leaf, 0)
+        if shape == "circular":
+            angle = angle_for_y(ly)
+            lx, ly = polar_to_xy(lx, angle)
+            leaf_textposition.append(
+                "middle right" if math.cos(angle) >= 0 else "middle left"
+            )
+        else:
+            leaf_textposition.append("middle right")
         leaf_x.append(lx)
         leaf_y.append(ly)
 
@@ -176,7 +275,7 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
         text=leaf_text,
         hovertext=leaf_hover,
         customdata=leaf_data,
-        textposition="middle right",
+        textposition=leaf_textposition,
         marker=dict(size=10, color=leaf_color),
         textfont=dict(color="#111"),
         hoverinfo="text",
@@ -190,30 +289,60 @@ def tree_to_plotly(tree, highlight=None, layout=None, is_leaf_fn=None, collapsed
     y_max = max(y_pos.values())
     y_bar = y_max + 1.5
 
-    # ---------- Layout ----------
-    fig.update_layout(
-        autosize=True,
-        margin=dict(l=40, r=right_margin, t=20, b=40),
-        xaxis=dict(
+    if shape == "circular":
+        leaf_label_padding = max(max_x * 0.35, scale_len)
+        axis_limit = max(max_x + leaf_label_padding, scale_len * 2, 1)
+        xaxis = dict(
+            showticklabels=False,
+            ticks="",
+            showgrid=False,
+            zeroline=False,
+            range=[-axis_limit, axis_limit],
+            scaleanchor="y",
+            scaleratio=1,
+        )
+        yaxis = dict(
+            showticklabels=False,
+            ticks="",
+            showgrid=False,
+            zeroline=False,
+            range=[-axis_limit, axis_limit],
+        )
+        margin = dict(l=60, r=60, t=40, b=40)
+    else:
+        xaxis = dict(
             showticklabels=False,
             ticks="",
             showgrid=False,
             zeroline=False,
             range=[0, max(max_x, scale_len) + x_padding],
-        ),
-        yaxis=dict(
+        )
+        yaxis = dict(
             showticklabels=False,
             range=[y_bar + 1, -1],
-        ),
+        )
+        right_margin = max(180, min(360, max_label_len * 8 + 40))
+        margin = dict(l=40, r=right_margin, t=20, b=40)
+
+    # ---------- Layout ----------
+    fig.update_layout(
+        autosize=True,
+        margin=margin,
+        xaxis=xaxis,
+        yaxis=yaxis,
         plot_bgcolor="white",
         clickmode="event+select",
-        uirevision="dashview-tree",
+        uirevision=f"dashview-tree-{shape}",
+        meta={"shape": shape},
     )
 
     if debug:
         missing = [n for n in x_pos if x_pos[n] is None or y_pos[n] is None]
         if missing:
             print("Nodes without position:", missing)
+
+    if shape == "circular":
+        return fig
 
     # --------- Drawing evolutionary distance ----------
     # Drawing evolutionary distance bar

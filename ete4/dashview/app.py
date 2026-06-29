@@ -62,6 +62,6 @@ def run_dash_app(tree, port=8050, tree_name="current tree"):
 
     register_control_panel_callbacks(app)
     register_download_callbacks(app, tree)
-    register_hover_callbacks(app, fig)
+    register_hover_callbacks(app, tree)
 
     app.run(port=port)

@@ -1,16 +1,20 @@
-from copy import deepcopy
-
 from dash import Input, Output
 
+from ..draw import tree_to_plotly
 
-def register_hover_callbacks(app, fig):
+
+def register_hover_callbacks(app, tree):
     @app.callback(
         Output("tree-graph", "figure"),
         Input("tree-graph", "hoverData"),
+        Input("shape-toggle", "children"),
     )
-    def highlight_clade(hover_data):
-        figure = deepcopy(fig)
+    def update_tree_figure(hover_data, selected_shape):
+        figure = tree_to_plotly(tree, shape=selected_shape)
         if not hover_data or not hover_data.get("points"):
+            return figure
+
+        if selected_shape != "rectangular":
             return figure
 
         point = hover_data["points"][0]
@@ -36,4 +40,3 @@ def register_hover_callbacks(app, fig):
         }
         figure.layout.shapes = (highlight_shape,) + tuple(figure.layout.shapes or ())
         return figure
-
