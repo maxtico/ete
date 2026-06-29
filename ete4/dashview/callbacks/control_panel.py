@@ -42,27 +42,35 @@ def register_control_panel_callbacks(app):
         Output("control-panel-page-main", "style"),
         Output("control-panel-page-selections", "style"),
         Output("control-panel-page-advanced", "style"),
+        Output("tree-options", "style"),
         Input("control-panel-toggle", "n_clicks"),
         Input("download-toggle", "n_clicks"),
+        Input("tree-toggle", "n_clicks"),
+        Input("tree-option-current", "n_clicks"),
         Input("control-panel-tab-main", "n_clicks"),
         Input("control-panel-tab-selections", "n_clicks"),
         Input("control-panel-tab-advanced", "n_clicks"),
         State("control-panel-tab-main", "className"),
         State("control-panel-tab-selections", "className"),
         State("control-panel-tab-advanced", "className"),
+        State("tree-options", "style"),
     )
     def toggle_control_panel(
         panel_clicks,
         download_clicks,
+        tree_clicks,
+        tree_option_clicks,
         main_clicks,
         selections_clicks,
         advanced_clicks,
         main_class,
         selections_class,
         advanced_class,
+        tree_options_style,
     ):
         panel_is_open = bool(panel_clicks and panel_clicks % 2)
         download_is_open = bool(download_clicks and download_clicks % 2)
+        tree_options_open = (tree_options_style or {}).get("display") == "block"
         active_tab = _active_tab_from_classes(
             main_class,
             selections_class,
@@ -72,10 +80,17 @@ def register_control_panel_callbacks(app):
         triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
         if triggered_id == "control-panel-tab-main":
             active_tab = "main"
+            tree_options_open = False
         elif triggered_id == "control-panel-tab-selections":
             active_tab = "selections"
+            tree_options_open = False
         elif triggered_id == "control-panel-tab-advanced":
             active_tab = "advanced"
+            tree_options_open = False
+        elif triggered_id == "tree-toggle":
+            tree_options_open = not tree_options_open
+        elif triggered_id == "tree-option-current":
+            tree_options_open = False
 
         tab_classes, page_styles = _tab_state(active_tab)
 
@@ -93,4 +108,5 @@ def register_control_panel_callbacks(app):
             page_styles["main"],
             page_styles["selections"],
             page_styles["advanced"],
+            {"display": "block" if panel_is_open and tree_options_open else "none"},
         )
