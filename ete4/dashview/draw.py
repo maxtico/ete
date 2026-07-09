@@ -105,6 +105,7 @@ def tree_to_plotly(
     n_visible_leaves = max(len(visible_leaves), 1)
     circular_inner_radius = max(max_x * 0.04, scale_len * 0.5)
     circular_label_offset = max(max_x * 0.015, scale_len * 0.08)
+    circular_label_step = max(max_x * 0.012, scale_len * 0.04)
 
     def angle_for_y(y):
         return math.pi - (2 * math.pi * (y + 0.5) / n_visible_leaves)
@@ -115,20 +116,34 @@ def tree_to_plotly(
     def polar_to_xy(radius, angle):
         return radius * math.cos(angle), radius * math.sin(angle)
 
-    def circular_label_position(radius, angle):
-        return polar_to_xy(radius + circular_label_offset, angle)
-
     def circular_label_style(angle):
         text_angle = -math.degrees(angle)
-        xanchor = "left"
         if text_angle < -90:
             text_angle += 180
-            xanchor = "right"
         elif text_angle > 90:
             text_angle -= 180
-            xanchor = "right"
-        return text_angle, xanchor
+        return text_angle
 
+    def add_circular_label_annotations(annotations, text, radius, angle):
+        text_angle = circular_label_style(angle)
+        label_radius = (
+            radius
+            + circular_label_offset
+            + len(text) * circular_label_step / 2
+        )
+        label_x, label_y = polar_to_xy(label_radius, angle)
+        annotations.append(
+            dict(
+                x=label_x,
+                y=label_y,
+                text=text,
+                showarrow=False,
+                textangle=text_angle,
+                xanchor="center",
+                yanchor="middle",
+                font=dict(size=12, color="#111"),
+            )
+        )
     def add_line(points, data, text):
         for x, y in points:
             x_lines.append(x)
@@ -292,20 +307,12 @@ def tree_to_plotly(
             angle = angle_for_y(ly)
             leaf_radius = radius_for_x(lx)
             lx, ly = polar_to_xy(leaf_radius, angle)
-            label_x, label_y = circular_label_position(leaf_radius, angle)
             if leaf_name:
-                text_angle, xanchor = circular_label_style(angle)
-                leaf_annotations.append(
-                    dict(
-                        x=label_x,
-                        y=label_y,
-                        text=leaf_name,
-                        showarrow=False,
-                        textangle=text_angle,
-                        xanchor=xanchor,
-                        yanchor="middle",
-                        font=dict(size=12, color="#111"),
-                    )
+                add_circular_label_annotations(
+                    leaf_annotations,
+                    leaf_name,
+                    leaf_radius,
+                    angle,
                 )
         else:
             leaf_textposition.append("middle right")
@@ -341,8 +348,9 @@ def tree_to_plotly(
 
     if shape == "circular":
         outer_radius = max_x + circular_inner_radius
+        label_extent = circular_label_offset + max_label_len * circular_label_step
         axis_limit = max(
-            (outer_radius + circular_label_offset) * 1.04,
+            (outer_radius + label_extent) * 1.04,
             scale_len * 1.2,
         )
         xaxis = dict(
