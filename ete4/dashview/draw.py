@@ -103,12 +103,31 @@ def tree_to_plotly(
     ]
 
     n_visible_leaves = max(len(visible_leaves), 1)
+    circular_inner_radius = max(max_x * 0.04, scale_len * 0.5)
+    circular_label_offset = max(max_x * 0.015, scale_len * 0.08)
 
     def angle_for_y(y):
-        return -math.pi + (2 * math.pi * (y + 0.5) / n_visible_leaves)
+        return math.pi - (2 * math.pi * (y + 0.5) / n_visible_leaves)
+
+    def radius_for_x(x):
+        return x + circular_inner_radius
 
     def polar_to_xy(radius, angle):
         return radius * math.cos(angle), radius * math.sin(angle)
+
+    def circular_label_position(radius, angle):
+        return polar_to_xy(radius + circular_label_offset, angle)
+
+    def circular_label_style(angle):
+        text_angle = -math.degrees(angle)
+        xanchor = "left"
+        if text_angle < -90:
+            text_angle += 180
+            xanchor = "right"
+        elif text_angle > 90:
+            text_angle -= 180
+            xanchor = "right"
+        return text_angle, xanchor
 
     def add_line(points, data, text):
         for x, y in points:
@@ -191,11 +210,23 @@ def tree_to_plotly(
             if x_pos.get(c) is not None and y_pos.get(c) is not None
         ]
 
+        if node is tree and children:
+            node_data = get_node_info(node)
+            angle = angle_for_y(y0)
+            add_line(
+                [
+                    polar_to_xy(0, angle),
+                    polar_to_xy(radius_for_x(x0), angle),
+                ],
+                node_data,
+                get_hover_text(node_data),
+            )
+
         if len(children) > 1:
             child_angles = [angle_for_y(y_pos[c]) for c in children]
             node_data = get_node_info(node)
             add_arc(
-                x0,
+                radius_for_x(x0),
                 min(child_angles),
                 max(child_angles),
                 node_data,
@@ -208,7 +239,10 @@ def tree_to_plotly(
             angle = angle_for_y(y1)
             c_data = get_node_info(c)
             add_line(
-                [polar_to_xy(x0, angle), polar_to_xy(x1, angle)],
+                [
+                    polar_to_xy(radius_for_x(x0), angle),
+                    polar_to_xy(radius_for_x(x1), angle),
+                ],
                 c_data,
                 get_hover_text(c_data),
             )
@@ -246,22 +280,38 @@ def tree_to_plotly(
     # ---------- Leaves ----------
     leaf_x, leaf_y, leaf_text, leaf_hover, leaf_color, leaf_data = [], [], [], [], [], []
     leaf_textposition = []
+    leaf_annotations = []
 
     for leaf in visible_leaves:
-        lx = x_pos.get(leaf, 0)
-        ly = y_pos.get(leaf, 0)
+        raw_lx = x_pos.get(leaf, 0)
+        raw_ly = y_pos.get(leaf, 0)
+        lx = raw_lx
+        ly = raw_ly
+        leaf_name = getattr(leaf, 'name', '') or ''
         if shape == "circular":
             angle = angle_for_y(ly)
-            lx, ly = polar_to_xy(lx, angle)
-            leaf_textposition.append(
-                "middle right" if math.cos(angle) >= 0 else "middle left"
-            )
+            leaf_radius = radius_for_x(lx)
+            lx, ly = polar_to_xy(leaf_radius, angle)
+            label_x, label_y = circular_label_position(leaf_radius, angle)
+            if leaf_name:
+                text_angle, xanchor = circular_label_style(angle)
+                leaf_annotations.append(
+                    dict(
+                        x=label_x,
+                        y=label_y,
+                        text=leaf_name,
+                        showarrow=False,
+                        textangle=text_angle,
+                        xanchor=xanchor,
+                        yanchor="middle",
+                        font=dict(size=12, color="#111"),
+                    )
+                )
         else:
             leaf_textposition.append("middle right")
         leaf_x.append(lx)
         leaf_y.append(ly)
 
-        leaf_name = getattr(leaf, 'name', '') or ''
         leaf_info = get_node_info(leaf)
         leaf_text.append(leaf_name)
         leaf_hover.append(get_hover_text(leaf_info))
@@ -271,11 +321,11 @@ def tree_to_plotly(
     fig.add_trace(go.Scatter(
         x=leaf_x,
         y=leaf_y,
-        mode="markers+text",
-        text=leaf_text,
+        mode="markers" if shape == "circular" else "markers+text",
+        text=None if shape == "circular" else leaf_text,
         hovertext=leaf_hover,
         customdata=leaf_data,
-        textposition=leaf_textposition,
+        textposition=None if shape == "circular" else leaf_textposition,
         marker=dict(size=10, color=leaf_color),
         textfont=dict(color="#111"),
         hoverinfo="text",
@@ -290,8 +340,11 @@ def tree_to_plotly(
     y_bar = y_max + 1.5
 
     if shape == "circular":
-        leaf_label_padding = max(max_x * 0.35, scale_len)
-        axis_limit = max(max_x + leaf_label_padding, scale_len * 2, 1)
+        outer_radius = max_x + circular_inner_radius
+        axis_limit = max(
+            (outer_radius + circular_label_offset) * 1.04,
+            scale_len * 1.2,
+        )
         xaxis = dict(
             showticklabels=False,
             ticks="",
@@ -323,6 +376,9 @@ def tree_to_plotly(
         )
         right_margin = max(180, min(360, max_label_len * 8 + 40))
         margin = dict(l=40, r=right_margin, t=20, b=40)
+
+    if shape == "circular":
+        fig.update_layout(annotations=leaf_annotations)
 
     # ---------- Layout ----------
     fig.update_layout(
