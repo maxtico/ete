@@ -1,6 +1,32 @@
-from dash import Input, Output
+import math
+
+from dash import Input, Output, callback_context
 
 from ..draw import tree_to_plotly
+
+
+def _annular_sector_path(inner_radius, outer_radius, angle_start, angle_end):
+    """Return a Plotly SVG path for an annular sector."""
+    angle_start, angle_end = sorted((angle_start, angle_end))
+    steps = max(12, int(abs(angle_end - angle_start) / (math.pi / 48)))
+    angles = [
+        angle_start + (angle_end - angle_start) * i / steps
+        for i in range(steps + 1)
+    ]
+
+    outer = [
+        (outer_radius * math.cos(angle), outer_radius * math.sin(angle))
+        for angle in angles
+    ]
+    inner = [
+        (inner_radius * math.cos(angle), inner_radius * math.sin(angle))
+        for angle in reversed(angles)
+    ]
+    points = outer + inner
+    commands = [f"M {points[0][0]:.12g},{points[0][1]:.12g}"]
+    commands.extend(f"L {x:.12g},{y:.12g}" for x, y in points[1:])
+    commands.append("Z")
+    return " ".join(commands)
 
 
 def register_hover_callbacks(app, tree):
@@ -8,18 +34,50 @@ def register_hover_callbacks(app, tree):
         Output("tree-graph", "figure"),
         Input("tree-graph", "hoverData"),
         Input("shape-toggle", "children"),
+        Input("selected-tree", "data"),
     )
-    def update_tree_figure(hover_data, selected_shape):
-        figure = tree_to_plotly(tree, shape=selected_shape)
-        if not hover_data or not hover_data.get("points"):
+    def update_tree_figure(hover_data, selected_shape, selected_tree):
+        current_tree = tree.get(selected_tree) if isinstance(tree, dict) else tree
+        if current_tree is None:
+            current_tree = next(iter(tree.values()))
+        figure = tree_to_plotly(current_tree, shape=selected_shape)
+        if callback_context.triggered_id == "selected-tree":
             return figure
-
-        if selected_shape != "rectangular":
+        if not hover_data or not hover_data.get("points"):
             return figure
 
         point = hover_data["points"][0]
         data = point.get("customdata")
         if not data:
+            return figure
+
+        if selected_shape == "circular":
+            geometry = (
+                data.get("node_radius"),
+                data.get("angle_start"),
+                data.get("angle_end"),
+            )
+            if any(value is None for value in geometry):
+                return figure
+
+            outer_radius = figure.layout.xaxis.range[1]
+            highlight_shape = {
+                "type": "path",
+                "path": _annular_sector_path(
+                    data["node_radius"],
+                    outer_radius,
+                    data["angle_start"],
+                    data["angle_end"],
+                ),
+                "xref": "x",
+                "yref": "y",
+                "fillcolor": "rgba(210, 210, 210, 0.35)",
+                "line": {"width": 0},
+                "layer": "below",
+            }
+            figure.layout.shapes = (highlight_shape,) + tuple(
+                figure.layout.shapes or ()
+            )
             return figure
 
         x0 = data.get("node_x", 0)

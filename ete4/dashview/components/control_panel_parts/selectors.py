@@ -1,7 +1,24 @@
 from dash import html
 
 
-def tree_select(tree_name):
+def tree_options(tree_names, selected_name):
+    return [
+        html.Button(
+            name,
+            id={"type": "tree-option", "name": name},
+            className=(
+                "dashview-tree-option is-selected"
+                if name == selected_name
+                else "dashview-tree-option"
+            ),
+            type="button",
+        )
+        for name in tree_names
+    ]
+
+
+def tree_select(tree_name, tree_names=None):
+    tree_names = tree_names or [tree_name]
     return html.Div(
         [
             html.Div(
@@ -17,14 +34,7 @@ def tree_select(tree_name):
                 className="dashview-tree-row",
             ),
             html.Div(
-                [
-                    html.Button(
-                        tree_name,
-                        id="tree-option-current",
-                        className="dashview-tree-option is-selected",
-                        type="button",
-                    )
-                ],
+                tree_options(tree_names, tree_name),
                 id="tree-options",
                 className="dashview-tree-options",
                 style={"display": "none"},

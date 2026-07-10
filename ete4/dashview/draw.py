@@ -71,7 +71,7 @@ def tree_to_plotly(
         node_is_leaf = is_leaf_fn(node) if is_leaf_fn else is_leaf(node)
         leaves = get_visible_leaves(node)
         leaf_y = [y_pos.get(leaf, 0) for leaf in leaves]
-        return {
+        info = {
             "type": "leaf" if node_is_leaf or node in collapsed_nodes else "internal",
             "name": getattr(node, "name", "") or "",
             "dist": getattr(node, "dist", None),
@@ -81,6 +81,15 @@ def tree_to_plotly(
             "y_min": min(leaf_y) if leaf_y else y_pos.get(node, 0),
             "y_max": max(leaf_y) if leaf_y else y_pos.get(node, 0),
         }
+        if shape == "circular":
+            # Store the polar geometry with each hover target.  The callback can
+            # then draw the clade sector without having to reconstruct the tree.
+            info.update(
+                node_radius=radius_for_x(info["node_x"]),
+                angle_start=angle_for_y(info["y_max"] + 0.5),
+                angle_end=angle_for_y(info["y_min"] - 0.5),
+            )
+        return info
 
     def get_hover_text(info):
         if info["type"] == "leaf":

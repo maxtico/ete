@@ -1,4 +1,4 @@
-from dash import Input, Output
+from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 from ete4 import newick
 
@@ -7,15 +7,20 @@ def register_download_callbacks(app, tree):
     @app.callback(
         Output("download-newick", "data"),
         Input("download-newick-button", "n_clicks"),
+        State("selected-tree", "data"),
         prevent_initial_call=True,
     )
-    def download_newick(n_clicks):
+    def download_newick(n_clicks, selected_tree):
         if not n_clicks:
             raise PreventUpdate
 
+        current_tree = tree.get(selected_tree) if isinstance(tree, dict) else tree
+        if current_tree is None:
+            raise PreventUpdate
+
         return {
-            "content": newick.dumps(tree),
-            "filename": "tree.nw",
+            "content": newick.dumps(current_tree),
+            "filename": f"{selected_tree or 'tree'}.nw",
             "type": "text/plain",
         }
 
@@ -72,4 +77,3 @@ def register_download_callbacks(app, tree):
         Input("download-image-button", "n_clicks"),
         prevent_initial_call=True,
     )
-

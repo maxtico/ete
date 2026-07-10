@@ -5,8 +5,13 @@ def button(title, className="dashview-panel-button", **props):
     return html.Button(title, className=className, **props)
 
 
-def faux_button(title):
-    return html.Button(title, className="dashview-faux-button", type="button")
+def faux_button(title, **props):
+    return html.Button(
+        title,
+        className="dashview-faux-button",
+        type="button",
+        **props,
+    )
 
 
 def control(label, value=""):

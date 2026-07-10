@@ -1,4 +1,4 @@
-from dash import Input, Output, State, callback_context
+from dash import ALL, Input, Output, State, callback_context
 
 
 TAB_CLASS = "dashview-panel-tab"
@@ -67,7 +67,7 @@ def register_control_panel_callbacks(app):
         Input("control-panel-toggle", "n_clicks"),
         Input("download-toggle", "n_clicks"),
         Input("tree-toggle", "n_clicks"),
-        Input("tree-option-current", "n_clicks"),
+        Input({"type": "tree-option", "name": ALL}, "n_clicks"),
         Input("shape-toggle", "n_clicks"),
         Input("shape-option-rectangular", "n_clicks"),
         Input("shape-option-circular", "n_clicks"),
@@ -109,7 +109,7 @@ def register_control_panel_callbacks(app):
             advanced_class,
         )
 
-        triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+        triggered_id = callback_context.triggered_id
         if triggered_id == "control-panel-tab-main":
             active_tab = "main"
             tree_options_open = False
@@ -125,7 +125,7 @@ def register_control_panel_callbacks(app):
         elif triggered_id == "tree-toggle":
             tree_options_open = not tree_options_open
             shape_options_open = False
-        elif triggered_id == "tree-option-current":
+        elif isinstance(triggered_id, dict) and triggered_id.get("type") == "tree-option":
             tree_options_open = False
         elif triggered_id == "shape-toggle":
             shape_options_open = not shape_options_open

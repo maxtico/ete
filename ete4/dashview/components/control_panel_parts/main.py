@@ -40,7 +40,7 @@ def main_page(tree_name):
                 ],
                 className="dashview-folder dashview-download-folder is-open",
             ),
-            faux_button("upload"),
+            faux_button("upload", id="upload-open"),
             shape_select(),
             control("node height min", ""),
             control("content height min", ""),
