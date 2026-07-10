@@ -84,7 +84,7 @@ UPLOAD_STYLE = r"""
             }
 
             .dashview-upload-status {
-                min-height: 1.2em;
+                min-height: 0;
                 color: #b42318;
             }
 
@@ -149,48 +149,75 @@ def make_upload_page():
                                     html.Legend("Tree"),
                                     html.Div(
                                         [
-                                            dcc.RadioItems(
-                                                id="upload-source",
-                                                options=[
-                                                    {"label": "From string", "value": "string"},
-                                                    {"label": "From file", "value": "file"},
+                                            dcc.Store(id="upload-source"),
+                                            html.Div(
+                                                [
+                                                    dcc.RadioItems(
+                                                        id="upload-radio-string",
+                                                        options=[
+                                                            {"label": "From string", "value": "string"},
+                                                        ],
+                                                        value=None,
+                                                        inline=True,
+                                                    ),
+                                                    html.Span(
+                                                        [
+                                                            " (",
+                                                            html.A(
+                                                                "load an example",
+                                                                href="#",
+                                                                id="upload-load-example",
+                                                            ),
+                                                            ")",
+                                                        ]
+                                                    ),
                                                 ],
-                                                value=None,
+                                                style={"display":"flex", "alignItems":"center", "gap":"4px","margin":"0"}
                                             ),
-                                            html.Span([
-                                                "(",
-                                                html.A(
-                                                    "load an example",
-                                                    href="#",
-                                                    id="upload-load-example",
-                                                ),
-                                                ")",
-                                            ]),
+                                            html.Br(),
+
                                             dcc.Textarea(
                                                 id="upload-string",
                                                 rows=8,
                                                 placeholder="Newick or indented representation of the tree",
                                                 disabled=True,
-                                                style={"width": "100%", "boxSizing": "border-box"},
+                                                style={
+                                                    "width": "100%",
+                                                    "boxSizing": "border-box",
+                                                },
                                             ),
+
+                                            html.Br(),
+
                                             html.Div(
                                                 [
-                                                    html.Span("From file:"),
+                                                    dcc.RadioItems(
+                                                        id="upload-radio-file",
+                                                        options=[
+                                                            {"label": "From file:", "value": "file"},
+                                                        ],
+                                                        value=None,
+                                                        inline=True,
+                                                    ),
+
                                                     dcc.Upload(
                                                         html.Div("Choose File"),
                                                         id="upload-file",
                                                         className="dashview-upload-file",
                                                         multiple=False,
                                                         disabled=True,
-                                                        accept=".tree,.newick,.nw,.tre,.nex,.nxs,.nexus,.txt,.gz,.bz2,.tgz,.tar,.zip",
+                                                        accept=".tree,.newick,.nw,.tre,.nex,.nxs,.nexus,"
+                                                            ".txt,.gz,.bz2,.tgz,.tar,.zip",
                                                     ),
+
                                                     html.Span(id="upload-filename"),
                                                 ],
-                                                className="upload-spacing",
+                                                style={"display":"flex", "alignItems":"center", "gap":"4px","margin":"0"}
                                             ),
                                         ]
                                     ),
-                                ]
+                                ],
+                                style={"width": "90%"},
                             ),
                             html.Fieldset(
                                 [

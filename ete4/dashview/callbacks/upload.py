@@ -82,12 +82,38 @@ def _unique_name(name, existing):
 
 def register_upload_callbacks(app, trees):
     @app.callback(
+        Output("upload-source", "data"),
         Output("upload-string", "disabled"),
         Output("upload-file", "disabled"),
-        Input("upload-source", "value"),
+        Output("upload-radio-string", "value"),
+        Output("upload-radio-file", "value"),
+        Output("upload-string", "value"),
+        Input("upload-radio-string", "value"),
+        Input("upload-radio-file", "value"),
+        Input("upload-load-example", "n_clicks"),
+        State("upload-string", "value"),
     )
-    def choose_upload_source(source):
-        return source != "string", source != "file"
+    def choose_upload_source(
+        string_value,
+        file_value,
+        example_clicks,
+        current_text,
+    ):
+        triggered_id = callback_context.triggered_id
+        if triggered_id == "upload-load-example" or (
+            triggered_id == "upload-radio-string" and string_value == "string"
+        ):
+            text = current_text
+            if triggered_id == "upload-load-example":
+                text = "((A:1,B:1):1,(C:1,D:1):1);"
+            return "string", False, True, "string", None, text
+        if triggered_id == "upload-radio-file" and file_value == "file":
+            return "file", True, False, None, "file", current_text
+        if string_value == "string":
+            return "string", False, True, "string", None, current_text
+        if file_value == "file":
+            return "file", True, False, None, "file", current_text
+        return None, True, True, None, None, current_text
 
     @app.callback(
         Output("upload-name-container", "style"),
@@ -95,17 +121,6 @@ def register_upload_callbacks(app, trees):
     )
     def toggle_upload_name(values):
         return {"display": "block" if "name" in (values or []) else "none"}
-
-    @app.callback(
-        Output("upload-source", "value"),
-        Output("upload-string", "value"),
-        Input("upload-load-example", "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def load_example(n_clicks):
-        if not n_clicks:
-            return no_update, no_update
-        return "string", "((A:1,B:1):1,(C:1,D:1):1);"
 
     @app.callback(
         Output("upload-filename", "children"),
@@ -123,7 +138,7 @@ def register_upload_callbacks(app, trees):
         Input("upload-open", "n_clicks"),
         Input("upload-back-link", "n_clicks"),
         Input("upload-submit", "n_clicks"),
-        State("upload-source", "value"),
+        State("upload-source", "data"),
         State("upload-string", "value"),
         State("upload-file", "contents"),
         State("upload-file", "filename"),
