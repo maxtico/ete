@@ -44,14 +44,14 @@ def tree_select(tree_name, tree_names=None):
     )
 
 
-def shape_select():
+def shape_select(shape="rectangular"):
     return html.Div(
         [
             html.Div(
                 [
                     html.Span("shape", className="dashview-control-label"),
                     html.Button(
-                        "rectangular",
+                        shape,
                         id="shape-toggle",
                         className="dashview-tree-current dashview-shape-current",
                         type="button",
@@ -64,13 +64,21 @@ def shape_select():
                     html.Button(
                         "rectangular",
                         id="shape-option-rectangular",
-                        className="dashview-tree-option is-selected",
+                        className=(
+                            "dashview-tree-option is-selected"
+                            if shape == "rectangular"
+                            else "dashview-tree-option"
+                        ),
                         type="button",
                     ),
                     html.Button(
                         "circular",
                         id="shape-option-circular",
-                        className="dashview-tree-option",
+                        className=(
+                            "dashview-tree-option is-selected"
+                            if shape == "circular"
+                            else "dashview-tree-option"
+                        ),
                         type="button",
                     ),
                 ],

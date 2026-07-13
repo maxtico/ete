@@ -1,4 +1,6 @@
-from dash import ALL, Input, Output, State, callback_context
+from dash import ALL, Input, Output, State, callback_context, no_update
+
+from ..config import make_tree_view_config, normalize_shape
 
 
 TAB_CLASS = "dashview-panel-tab"
@@ -50,6 +52,26 @@ def _shape_state(selected_shape):
 
 def register_control_panel_callbacks(app):
     @app.callback(
+        Output("tree-view-config", "data"),
+        Input("shape-option-rectangular", "n_clicks"),
+        Input("shape-option-circular", "n_clicks"),
+        State("tree-view-config", "data"),
+        prevent_initial_call=True,
+    )
+    def select_shape(rectangular_clicks, circular_clicks, config):
+        triggered_id = callback_context.triggered_id
+        if triggered_id == "shape-option-rectangular":
+            shape = "rectangular"
+        elif triggered_id == "shape-option-circular":
+            shape = "circular"
+        else:
+            return no_update
+
+        updated_config = dict(config or {})
+        updated_config.update(make_tree_view_config(shape))
+        return updated_config
+
+    @app.callback(
         Output("control-panel", "className"),
         Output("control-panel-body", "style"),
         Output("download-options", "style"),
@@ -71,6 +93,7 @@ def register_control_panel_callbacks(app):
         Input("shape-toggle", "n_clicks"),
         Input("shape-option-rectangular", "n_clicks"),
         Input("shape-option-circular", "n_clicks"),
+        Input("tree-view-config", "data"),
         Input("control-panel-tab-main", "n_clicks"),
         Input("control-panel-tab-selections", "n_clicks"),
         Input("control-panel-tab-advanced", "n_clicks"),
@@ -79,7 +102,6 @@ def register_control_panel_callbacks(app):
         State("control-panel-tab-advanced", "className"),
         State("tree-options", "style"),
         State("shape-options", "style"),
-        State("shape-toggle", "children"),
     )
     def toggle_control_panel(
         panel_clicks,
@@ -89,6 +111,7 @@ def register_control_panel_callbacks(app):
         shape_clicks,
         rectangular_clicks,
         circular_clicks,
+        tree_view_config,
         main_clicks,
         selections_clicks,
         advanced_clicks,
@@ -97,7 +120,6 @@ def register_control_panel_callbacks(app):
         advanced_class,
         tree_options_style,
         shape_options_style,
-        selected_shape,
     ):
         panel_is_open = bool(panel_clicks and panel_clicks % 2)
         download_is_open = bool(download_clicks and download_clicks % 2)
@@ -109,6 +131,7 @@ def register_control_panel_callbacks(app):
             advanced_class,
         )
 
+        selected_shape = normalize_shape((tree_view_config or {}).get("shape"))
         triggered_id = callback_context.triggered_id
         if triggered_id == "control-panel-tab-main":
             active_tab = "main"
@@ -131,10 +154,8 @@ def register_control_panel_callbacks(app):
             shape_options_open = not shape_options_open
             tree_options_open = False
         elif triggered_id == "shape-option-rectangular":
-            selected_shape = "rectangular"
             shape_options_open = False
         elif triggered_id == "shape-option-circular":
-            selected_shape = "circular"
             shape_options_open = False
 
         tab_classes, page_styles = _tab_state(active_tab)

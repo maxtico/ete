@@ -17,6 +17,12 @@ def populate_args(parser):
         default=8050,
         help="Dash server port"
     )
+    parser.add_argument(
+        "--shape",
+        choices=("rectangular", "circular"),
+        default="rectangular",
+        help="Initial tree shape",
+    )
 
 
 populate_parser = populate_args
@@ -26,4 +32,9 @@ def run(args):
     tfile = next(src_tree_iterator(args))
     t = PhyloTree(open(tfile), parser=args.src_newick_format)
 
-    run_dash_app(t, port=args.port, tree_name=Path(tfile).name)
+    run_dash_app(
+        t,
+        port=args.port,
+        tree_name=Path(tfile).name,
+        shape=args.shape,
+    )

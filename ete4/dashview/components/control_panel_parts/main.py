@@ -4,7 +4,7 @@ from .helpers import button, control, faux_button, folder, page
 from .selectors import shape_select, tree_select
 
 
-def main_page(tree_name):
+def main_page(tree_name, shape="rectangular"):
     return page(
         "",
         [
@@ -41,7 +41,7 @@ def main_page(tree_name):
                 className="dashview-folder dashview-download-folder is-open",
             ),
             faux_button("upload", id="upload-open"),
-            shape_select(),
+            shape_select(shape),
             control("node height min", ""),
             control("content height min", ""),
             folder("layouts"),

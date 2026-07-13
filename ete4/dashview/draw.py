@@ -1,6 +1,7 @@
 import math
 
 import plotly.graph_objects as go
+from .config import normalize_shape
 from .graphics import compute_x_positions, compute_y_positions, is_leaf
 from .layout import Layout, BASIC_LAYOUT
 
@@ -34,8 +35,7 @@ def tree_to_plotly(
     y_pos = compute_y_positions(tree, is_leaf_fn=is_leaf_fn, collapsed_nodes=collapsed_nodes)
     x_pos = compute_x_positions(tree)
 
-    if shape not in {"rectangular", "circular"}:
-        shape = "rectangular"
+    shape = normalize_shape(shape)
 
     # ---------- Evolutionary distance ----------
     max_x = max(x_pos.values()) if x_pos else 0

@@ -2,6 +2,7 @@ import math
 
 from dash import Input, Output, callback_context
 
+from ..config import normalize_shape
 from ..draw import tree_to_plotly
 
 
@@ -33,10 +34,11 @@ def register_hover_callbacks(app, tree):
     @app.callback(
         Output("tree-graph", "figure"),
         Input("tree-graph", "hoverData"),
-        Input("shape-toggle", "children"),
+        Input("tree-view-config", "data"),
         Input("selected-tree", "data"),
     )
-    def update_tree_figure(hover_data, selected_shape, selected_tree):
+    def update_tree_figure(hover_data, tree_view_config, selected_tree):
+        selected_shape = normalize_shape((tree_view_config or {}).get("shape"))
         current_tree = tree.get(selected_tree) if isinstance(tree, dict) else tree
         if current_tree is None:
             current_tree = next(iter(tree.values()))

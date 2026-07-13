@@ -8,6 +8,7 @@ from .callbacks.upload import register_upload_callbacks
 from .components.control_panel import CONTROL_PANEL_STYLE, make_control_panel
 from .components.upload_page import UPLOAD_STYLE, make_upload_page
 from .components.tree_graph import make_tree_graph
+from .config import DEFAULT_SHAPE, make_tree_view_config, normalize_shape
 from .draw import tree_to_plotly
 
 
@@ -43,13 +44,14 @@ def make_index_string():
 </html>"""
 
 
-def make_app_layout(fig, tree_name="current tree"):
+def make_app_layout(fig, tree_name="current tree", shape=DEFAULT_SHAPE):
+    shape = normalize_shape(shape)
     return html.Div(
         [
             html.Div(
                 [
                     make_tree_graph(fig),
-                    make_control_panel(tree_name),
+                    make_control_panel(tree_name, shape=shape),
                 ],
                 id="dashboard-page",
                 style={"position": "fixed", "inset": 0, "display": "block"},
@@ -61,17 +63,24 @@ def make_app_layout(fig, tree_name="current tree"):
             dcc.Store(id="tree-names", data=[tree_name]),
             dcc.Store(id="selected-tree", data=tree_name),
             dcc.Store(id="upload-result"),
+            dcc.Store(id="tree-view-config", data=make_tree_view_config(shape)),
         ],
     )
 
 
-def run_dash_app(tree, port=8050, tree_name="current tree"):
-    fig = tree_to_plotly(tree)
+def run_dash_app(
+    tree,
+    port=8050,
+    tree_name="current tree",
+    shape=DEFAULT_SHAPE,
+):
+    shape = normalize_shape(shape)
+    fig = tree_to_plotly(tree, shape=shape)
     trees = {tree_name: tree}
 
     app = Dash(__name__)
     app.index_string = make_index_string()
-    app.layout = make_app_layout(fig, tree_name)
+    app.layout = make_app_layout(fig, tree_name, shape=shape)
 
     register_control_panel_callbacks(app)
     register_tree_callbacks(app)
