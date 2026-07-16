@@ -5,7 +5,11 @@ from .main import main_page
 from .selections import selections_page
 
 
-def make_control_panel(tree_name="current tree", shape="rectangular"):
+def make_control_panel(
+    tree_name="current tree",
+    shape="rectangular",
+    node_height_min=30,
+):
     """Return the floating control panel used by the Dash tree view."""
     return html.Div(
         [
@@ -36,7 +40,11 @@ def make_control_panel(tree_name="current tree", shape="rectangular"):
                         ],
                         className="dashview-panel-tabs",
                     ),
-                    main_page(tree_name, shape=shape),
+                    main_page(
+                        tree_name,
+                        shape=shape,
+                        node_height_min=node_height_min,
+                    ),
                     selections_page(),
                     advanced_page(),
                 ],

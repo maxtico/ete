@@ -1,6 +1,6 @@
 from dash import ALL, Input, Output, State, callback_context, no_update
 
-from ..config import make_tree_view_config, normalize_shape
+from ..config import normalize_node_height_min, normalize_shape
 
 
 TAB_CLASS = "dashview-panel-tab"
@@ -68,7 +68,25 @@ def register_control_panel_callbacks(app):
             return no_update
 
         updated_config = dict(config or {})
-        updated_config.update(make_tree_view_config(shape))
+        updated_config["shape"] = normalize_shape(shape)
+        return updated_config
+
+    @app.callback(
+        Output("tree-view-config", "data", allow_duplicate=True),
+        Input("node-height-min-input", "value"),
+        State("tree-view-config", "data"),
+        prevent_initial_call=True,
+    )
+    def select_node_height_min(value, config):
+        if value is None:
+            return no_update
+        try:
+            value = normalize_node_height_min(value)
+        except ValueError:
+            return no_update
+
+        updated_config = dict(config or {})
+        updated_config["node_height_min"] = value
         return updated_config
 
     @app.callback(

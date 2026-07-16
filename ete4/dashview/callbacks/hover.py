@@ -2,7 +2,7 @@ import math
 
 from dash import Input, Output, callback_context
 
-from ..config import normalize_shape
+from ..config import normalize_node_height_min, normalize_shape
 from ..draw import tree_to_plotly
 
 
@@ -39,10 +39,17 @@ def register_hover_callbacks(app, tree):
     )
     def update_tree_figure(hover_data, tree_view_config, selected_tree):
         selected_shape = normalize_shape((tree_view_config or {}).get("shape"))
+        node_height_min = normalize_node_height_min(
+            (tree_view_config or {}).get("node_height_min")
+        )
         current_tree = tree.get(selected_tree) if isinstance(tree, dict) else tree
         if current_tree is None:
             current_tree = next(iter(tree.values()))
-        figure = tree_to_plotly(current_tree, shape=selected_shape)
+        figure = tree_to_plotly(
+            current_tree,
+            shape=selected_shape,
+            node_height_min=node_height_min,
+        )
         if callback_context.triggered_id == "selected-tree":
             return figure
         if not hover_data or not hover_data.get("points"):

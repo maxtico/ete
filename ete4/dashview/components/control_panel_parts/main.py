@@ -1,10 +1,15 @@
 from dash import html
 
-from .helpers import button, control, faux_button, folder, page
+from ...config import DEFAULT_NODE_HEIGHT_MIN, NODE_HEIGHT_MIN_RANGE
+from .helpers import button, control, faux_button, folder, number_control, page
 from .selectors import shape_select, tree_select
 
 
-def main_page(tree_name, shape="rectangular"):
+def main_page(
+    tree_name,
+    shape="rectangular",
+    node_height_min=DEFAULT_NODE_HEIGHT_MIN,
+):
     return page(
         "",
         [
@@ -42,7 +47,12 @@ def main_page(tree_name, shape="rectangular"):
             ),
             faux_button("upload", id="upload-open"),
             shape_select(shape),
-            control("node height min", ""),
+            number_control(
+                "node height min",
+                node_height_min,
+                "node-height-min-input",
+                *NODE_HEIGHT_MIN_RANGE,
+            ),
             control("content height min", ""),
             folder("layouts"),
             folder(

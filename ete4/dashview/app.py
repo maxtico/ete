@@ -8,7 +8,13 @@ from .callbacks.upload import register_upload_callbacks
 from .components.control_panel import CONTROL_PANEL_STYLE, make_control_panel
 from .components.upload_page import UPLOAD_STYLE, make_upload_page
 from .components.tree_graph import make_tree_graph
-from .config import DEFAULT_SHAPE, make_tree_view_config, normalize_shape
+from .config import (
+    DEFAULT_NODE_HEIGHT_MIN,
+    DEFAULT_SHAPE,
+    make_tree_view_config,
+    normalize_node_height_min,
+    normalize_shape,
+)
 from .draw import tree_to_plotly
 
 
@@ -44,14 +50,24 @@ def make_index_string():
 </html>"""
 
 
-def make_app_layout(fig, tree_name="current tree", shape=DEFAULT_SHAPE):
+def make_app_layout(
+    fig,
+    tree_name="current tree",
+    shape=DEFAULT_SHAPE,
+    node_height_min=DEFAULT_NODE_HEIGHT_MIN,
+):
     shape = normalize_shape(shape)
+    node_height_min = normalize_node_height_min(node_height_min)
     return html.Div(
         [
             html.Div(
                 [
                     make_tree_graph(fig),
-                    make_control_panel(tree_name, shape=shape),
+                    make_control_panel(
+                        tree_name,
+                        shape=shape,
+                        node_height_min=node_height_min,
+                    ),
                 ],
                 id="dashboard-page",
                 style={"position": "fixed", "inset": 0, "display": "block"},
@@ -63,7 +79,10 @@ def make_app_layout(fig, tree_name="current tree", shape=DEFAULT_SHAPE):
             dcc.Store(id="tree-names", data=[tree_name]),
             dcc.Store(id="selected-tree", data=tree_name),
             dcc.Store(id="upload-result"),
-            dcc.Store(id="tree-view-config", data=make_tree_view_config(shape)),
+            dcc.Store(
+                id="tree-view-config",
+                data=make_tree_view_config(shape, node_height_min),
+            ),
         ],
     )
 

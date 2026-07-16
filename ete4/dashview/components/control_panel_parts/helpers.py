@@ -1,4 +1,4 @@
-from dash import html
+from dash import dcc, html
 
 
 def button(title, className="dashview-panel-button", **props):
@@ -21,6 +21,25 @@ def control(label, value=""):
             html.Span(value, className="dashview-control-value"),
         ],
         className="dashview-control-row",
+    )
+
+
+def number_control(label, value, component_id, minimum, maximum):
+    return html.Div(
+        [
+            html.Label(label, htmlFor=component_id, className="dashview-control-label"),
+            dcc.Input(
+                id=component_id,
+                className="dashview-control-value dashview-number-input",
+                type="number",
+                value=value,
+                min=minimum,
+                max=maximum,
+                step=1,
+                debounce=False,
+            ),
+        ],
+        className="dashview-control-row dashview-number-control",
     )
 
 

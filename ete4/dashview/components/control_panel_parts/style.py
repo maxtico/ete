@@ -199,6 +199,7 @@ CONTROL_PANEL_STYLE = """
 
             /* Right-side value box for generic rows. */
             .dashview-control-value {
+                box-sizing: border-box;
                 min-height: 20px;
                 padding: 4px 6px;
                 border-radius: 4px;
@@ -208,6 +209,35 @@ CONTROL_PANEL_STYLE = """
                 text-align: right;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+            }
+
+            /* Editable numeric bindings, such as node height min. */
+            .dashview-number-control {
+                grid-template-columns: minmax(0, 1fr) 42px;
+                min-height: 20px;
+                padding: 0;
+            }
+
+            .dashview-number-control .dashview-control-label {
+                font-weight: bold;
+            }
+
+            .dashview-number-input {
+                justify-self: end;
+                width: 42px;
+                height: 20px;
+                border: 0;
+                outline: none;
+                font: inherit;
+                font-weight: bold;
+            }
+
+            .dashview-number-input:hover {
+                background: var(--tp-input-background-color-hover);
+            }
+
+            .dashview-number-input:focus {
+                background: var(--tp-input-background-color-focus);
             }
 
             /* Tree selector wrapper: the special clickable "tree" row. */

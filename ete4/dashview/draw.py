@@ -1,9 +1,38 @@
 import math
 
 import plotly.graph_objects as go
-from .config import normalize_shape
+from .config import normalize_node_height_min, normalize_shape
 from .graphics import compute_x_positions, compute_y_positions, is_leaf
 from .layout import Layout, BASIC_LAYOUT
+
+
+DEFAULT_PLOT_HEIGHT = 800
+
+
+def _collapsed_by_node_height(tree, node_height_min, plot_height=DEFAULT_PLOT_HEIGHT):
+    """Collapse clades whose projected height is below the pixel threshold."""
+    leaf_counts = {}
+
+    def count_leaves(node):
+        children = getattr(node, "children", [])
+        count = sum(count_leaves(child) for child in children) if children else 1
+        leaf_counts[node] = count
+        return count
+
+    total_leaves = count_leaves(tree)
+    pixels_per_leaf = plot_height / max(total_leaves, 1)
+    collapsed = set()
+
+    def visit(node):
+        for child in getattr(node, "children", []):
+            child_children = getattr(child, "children", [])
+            if child_children and leaf_counts[child] * pixels_per_leaf < node_height_min:
+                collapsed.add(child)
+            else:
+                visit(child)
+
+    visit(tree)
+    return collapsed
 
 
 def tree_to_plotly(
@@ -14,6 +43,7 @@ def tree_to_plotly(
     collapsed_nodes=None,
     debug=False,
     shape="rectangular",
+    node_height_min=30,
 ):
     """
     Converteix un arbre ETE a una figura Plotly.
@@ -29,13 +59,17 @@ def tree_to_plotly(
 
     highlight = highlight or []
     layout = layout or BASIC_LAYOUT
-    collapsed_nodes = collapsed_nodes or set()
+    collapsed_nodes = set(collapsed_nodes or ())
 
     # ---------- Compute positions ----------
     y_pos = compute_y_positions(tree, is_leaf_fn=is_leaf_fn, collapsed_nodes=collapsed_nodes)
     x_pos = compute_x_positions(tree)
 
     shape = normalize_shape(shape)
+    node_height_min = normalize_node_height_min(node_height_min)
+    collapsed_nodes.update(
+        _collapsed_by_node_height(tree, node_height_min)
+    )
 
     # ---------- Evolutionary distance ----------
     max_x = max(x_pos.values()) if x_pos else 0
@@ -106,10 +140,15 @@ def tree_to_plotly(
             rows.append(f"support: {info['support']}")
         return "<br>".join(rows)
 
-    visible_leaves = [
-        n for n in getattr(tree, 'traverse', lambda: [])()
-        if is_visible_leaf(n)
-    ]
+    def collect_visible_leaves(node):
+        if is_visible_leaf(node):
+            return [node]
+        leaves = []
+        for child in getattr(node, "children", []):
+            leaves.extend(collect_visible_leaves(child))
+        return leaves
+
+    visible_leaves = collect_visible_leaves(tree)
 
     n_visible_leaves = max(len(visible_leaves), 1)
     circular_inner_radius = max(max_x * 0.04, scale_len * 0.5)
@@ -407,7 +446,7 @@ def tree_to_plotly(
         plot_bgcolor="white",
         clickmode="event+select",
         uirevision=f"dashview-tree-{shape}",
-        meta={"shape": shape},
+        meta={"shape": shape, "node_height_min": node_height_min},
     )
 
     if debug:
